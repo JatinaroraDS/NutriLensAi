@@ -1,0 +1,10 @@
+{
+  "projectId": "nutrilensai",
+  "appId": "1:349461477026:web:9f96e76f1f0e6e467b09fb",
+  "apiKey": "AIzaSyAJAPMrAT5ROnTaMcgI0jHVmcdObVzyHOg",
+  "authDomain": "nutrilensai.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-3343af66-fb4b-4906-9ebb-63238dcea61b",
+  "storageBucket": "nutrilensai.firebasestorage.app",
+  "messagingSenderId": "349461477026",
+  "measurementId": ""
+}

@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1D9E75;
+  --color-primary-dark: #157959;
+  --color-accent: #E8F5E9;
+  --color-surface: #FFFFFF;
+  --color-bg: #F8FAFC;
+  --color-sidebar: #FFFFFF;
+  --color-border: #F1F5F9;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-slate-800 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-200 active:scale-95 disabled:opacity-50;
+  }
+  
+  .card {
+    @apply bg-surface rounded-3xl p-6 shadow-sm ring-1 ring-slate-100 border-none;
+  }
+
+  .input-field {
+    @apply w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-700 placeholder:text-slate-400;
+  }
+
+  .nav-item {
+    @apply flex items-center justify-center text-slate-300 hover:text-slate-500 transition-colors p-2;
+  }
+
+  .nav-item.active {
+    @apply text-primary;
+  }
+}
+
+/* Specific UI elements */
+.nutrition-ring {
+  transform: rotate(-90deg);
+}
+
+.chat-bubble {
+  @apply max-w-[85%] p-4 rounded-3xl text-sm leading-relaxed shadow-sm;
+}
+
+.chat-bubble-user {
+  @apply bg-primary text-white rounded-tr-none self-end;
+}
+
+.chat-bubble-ai {
+  @apply bg-white border border-slate-100 text-slate-800 rounded-tl-none self-start;
+}
+
+/* AI Nudge Decorative Blurs */
+.nudge-blur-1 {
+  @apply absolute top-[-50px] right-[-30px] h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl;
+}
+
+.nudge-blur-2 {
+  @apply absolute bottom-[-100px] left-[20%] h-64 w-64 rounded-full bg-primary/20 blur-3xl;
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom slider thumb */
+input[type="range"] {
+  @apply accent-primary;
+}

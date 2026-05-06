@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and health context settings.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "goal": { "type": "string", "enum": ["lose weight", "build muscle", "maintain"] },
+        "diet": { "type": "string", "enum": ["veg", "vegan", "keto", "none"] },
+        "onboarded": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "goal", "diet"]
+    },
+    "Meal": {
+      "title": "Meal",
+      "description": "Logged meal with nutrition and mood context.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "calories": { "type": "number" },
+        "protein": { "type": "number" },
+        "carbs": { "type": "number" },
+        "fats": { "type": "number" },
+        "mood": { "type": "string", "enum": ["happy", "stressed", "tired"] },
+        "hunger": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "timestamp"]
+    },
+    "Streak": {
+      "title": "Streak",
+      "description": "User habit streak tracking.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "count": { "type": "integer" },
+        "lastUpdate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "count"]
+    }
+  },
+  "firestore": {
+    "users/{userId}/profile/settings": {
+      "schema": "User",
+      "description": "Stores user settings and health goals."
+    },
+    "users/{userId}/meals/{mealId}": {
+      "schema": "Meal",
+      "description": "Stores individual meal logs."
+    },
+    "users/{userId}/streaks/main": {
+      "schema": "Streak",
+      "description": "Stores user habit streak."
+    }
+  }
+}
