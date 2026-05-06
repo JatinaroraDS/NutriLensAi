@@ -1,6 +1,6 @@
 {
   "name": "NutriLens AI",
   "description": "A proactive nutrition app that intervenes based on stress and sleep context.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": []
 }

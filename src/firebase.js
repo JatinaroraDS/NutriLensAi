@@ -22,17 +22,46 @@ export const signIn = async () => {
 };
 export const signOutUser = () => auth.signOut();
 
+export const OperationType = {
+  CREATE: 'create',
+  UPDATE: 'update',
+  DELETE: 'delete',
+  LIST: 'list',
+  GET: 'get',
+  WRITE: 'write',
+};
+
+export function handleFirestoreError(error, operationType, path) {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 /**
  * Validate connection to Firestore as per instructions.
  */
 async function testConnection() {
   try {
-    // Attempt to read a dummy document to verify connectivity
-    await getDocFromServer(doc(db, 'system', 'health'));
+    await getDocFromServer(doc(db, 'test', 'connection'));
     console.log("Firebase connection established.");
   } catch (error) {
-    if (error instanceof Error && (error.message.includes('offline') || error.message.includes('permission'))) {
-      console.warn("Firestore connection check: Expected behavior or offline.");
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration.");
     }
   }
 }

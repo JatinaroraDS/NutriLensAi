@@ -10,6 +10,10 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
     
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
@@ -19,32 +23,42 @@ service cloud.firestore {
        return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    // Connection test
+    match /test/connection {
+      allow read: if true;
+    }
+
     // User Profile
     match /users/{userId}/profile/settings {
       allow read: if isOwner(userId);
-      allow write: if isOwner(userId) && 
-                   request.resource.data.keys().hasAll(['name', 'goal', 'diet']) &&
+      allow write: if isVerified() && isOwner(userId) && 
+                   request.resource.data.keys().hasAll(['name', 'goal', 'diet', 'userId', 'onboarded']) &&
                    request.resource.data.name is string &&
-                   request.resource.data.name.size() <= 100;
+                   request.resource.data.name.size() <= 100 &&
+                   request.resource.data.goal in ['lose weight', 'build muscle', 'maintain'] &&
+                   request.resource.data.diet in ['veg', 'vegan', 'keto', 'none'];
     }
 
     // Meals
     match /users/{userId}/meals/{mealId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && 
+      allow create: if isVerified() && isOwner(userId) && 
                     isValidId(mealId) &&
                     request.resource.data.userId == request.auth.uid &&
-                    request.resource.data.timestamp is timestamp;
-      allow update: if isOwner(userId) &&
+                    request.resource.data.timestamp is timestamp &&
+                    request.resource.data.name is string &&
+                    request.resource.data.name.size() <= 200;
+      allow update: if isVerified() && isOwner(userId) &&
                     request.resource.data.userId == existing().userId;
-      allow delete: if isOwner(userId);
+      allow delete: if isVerified() && isOwner(userId);
     }
 
     // Streaks
     match /users/{userId}/streaks/main {
       allow read: if isOwner(userId);
-      allow write: if isOwner(userId) &&
-                   request.resource.data.userId == request.auth.uid;
+      allow write: if isVerified() && isOwner(userId) &&
+                   request.resource.data.userId == request.auth.uid &&
+                   request.resource.data.count is int;
     }
   }
 }

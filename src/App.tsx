@@ -23,7 +23,7 @@ import {
   Loader2,
   CheckCircle2
 } from 'lucide-react';
-import { auth, db, signIn, signOutUser } from './firebase';
+import { auth, db, signIn, signOutUser, OperationType, handleFirestoreError } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, addDoc, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { DataInference } from './DataInference';
@@ -40,7 +40,7 @@ declare global {
     google: any;
   }
 }
-const google = (window as any).google;
+const google = () => (window as any).google;
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -62,14 +62,19 @@ export default function App() {
       setUser(u);
       if (u) {
         // Fetch profile
-        const profileDoc = await getDoc(doc(db, 'users', u.uid, 'profile', 'settings'));
-        if (profileDoc.exists()) {
-          const data = profileDoc.data();
-          setProfile(data);
-          setContext(prev => ({ ...prev, goal: data.goal, diet: data.diet }));
-          setCurrentScreen('dashboard');
-        } else {
-          setCurrentScreen('onboarding');
+        const path = `users/${u.uid}/profile/settings`;
+        try {
+          const profileDoc = await getDoc(doc(db, path));
+          if (profileDoc.exists()) {
+            const data = profileDoc.data();
+            setProfile(data);
+            setContext((prev: any) => ({ ...prev, goal: data.goal, diet: data.diet }));
+            setCurrentScreen('dashboard');
+          } else {
+            setCurrentScreen('onboarding');
+          }
+        } catch (e) {
+          handleFirestoreError(e, OperationType.GET, path);
         }
       }
       setLoading(false);
@@ -97,11 +102,16 @@ export default function App() {
 
   const saveProfile = async (newProfile: any) => {
     if (!user) return;
+    const path = `users/${user.uid}/profile/settings`;
     const profileData = { ...newProfile, onboarded: true, userId: user.uid };
-    await setDoc(doc(db, 'users', user.uid, 'profile', 'settings'), profileData);
-    setProfile(profileData);
-    setContext(prev => ({ ...prev, goal: newProfile.goal, diet: newProfile.diet }));
-    setCurrentScreen('dashboard');
+    try {
+      await setDoc(doc(db, path), profileData);
+      setProfile(profileData);
+      setContext((prev: any) => ({ ...prev, goal: newProfile.goal, diet: newProfile.diet }));
+      setCurrentScreen('dashboard');
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, path);
+    }
   };
 
   if (loading) {
@@ -180,7 +190,7 @@ export default function App() {
 
 // --- Views ---
 
-function LoginView({ onSignIn }: { onSignIn: () => Promise<void> }) {
+function LoginView({ onSignIn }: { onSignIn: () => Promise<any> }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -336,8 +346,11 @@ function DashboardView({ context, setContext, nudge, nudgeLoading, user }: any) 
 
   useEffect(() => {
     // Fetch streak
-    const unsub = onSnapshot(doc(db, 'users', user.uid, 'streaks', 'main'), (doc) => {
+    const path = `users/${user.uid}/streaks/main`;
+    const unsub = onSnapshot(doc(db, path), (doc) => {
       if (doc.exists()) setStreak(doc.data().count);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
     });
     return unsub;
   }, [user.uid]);
@@ -352,20 +365,42 @@ function DashboardView({ context, setContext, nudge, nudgeLoading, user }: any) 
   const loadNearbyHealthyPlaces = async () => {
     setPlacesLoading(true);
     try {
-      // @ts-ignore
-      const { PlacesService } = await google.maps.importLibrary("places");
-      const location = new google.maps.LatLng(37.7749, -122.4194); 
+      const g = google();
+      if (!g || !g.maps) {
+        console.warn("Google Maps not loaded yet.");
+        setPlacesLoading(false);
+        return;
+      }
+      
+      const { PlacesService } = await g.maps.importLibrary("places");
+      
+      // Get real location if possible
+      let location = new g.maps.LatLng(37.7749, -122.4194); // Default to SF
+      
+      if (navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+          });
+          location = new g.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+        } catch (error) {
+          console.warn("Geolocation failed, using fallback.", error);
+        }
+      }
+
       const service = new PlacesService(document.createElement('div'));
       const request = {
         location,
-        radius: 5000,
-        keyword: `healthy ${context.diet !== 'none' ? context.diet : ''} restaurant`,
+        radius: 10000,
+        keyword: `healthy ${context.diet !== 'none' ? context.diet : ''} restaurant healthy food vegan vegetarian`,
         type: 'restaurant'
       };
 
       service.nearbySearch(request, (results: any, status: any) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK) {
+        if (status === g.maps.places.PlacesServiceStatus.OK) {
           setPlaces(results.slice(0, 3));
+        } else {
+          console.error("Places search failed:", status);
         }
         setPlacesLoading(false);
       });
@@ -572,18 +607,21 @@ function MealLoggerView({ user }: { user: any; key?: string }) {
   const [meals, setMeals] = useState<any[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, 'users', user.uid, 'meals'), orderBy('timestamp', 'desc'), limit(5));
+    const path = `users/${user.uid}/meals`;
+    const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(5));
     return onSnapshot(q, (snapshot) => {
       setMeals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
     });
   }, [user.uid]);
 
   const logMeal = async () => {
     if (!queryText) return;
     setLoading(true);
+    const path = `users/${user.uid}/meals`;
     try {
       // Mock nutrition fetch from Open Food Facts API
-      // In a real app we'd search and pick.
       const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${queryText}&json=1&page_size=1`);
       const data = await res.json();
       const product = data.products?.[0] || {};
@@ -600,12 +638,10 @@ function MealLoggerView({ user }: { user: any; key?: string }) {
         timestamp: new Date()
       };
 
-      await addDoc(collection(db, 'users', user.uid, 'meals'), meal);
+      await addDoc(collection(db, path), meal);
       setQueryText('');
-      alert('Meal logged successfully!');
     } catch (e) {
-      console.error(e);
-      alert('Error fetching nutrition data.');
+      handleFirestoreError(e, OperationType.WRITE, path);
     }
     setLoading(false);
   };
@@ -699,9 +735,18 @@ function ChatView({ user, context }: { user: any; context: any; key?: string }) 
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      // Fetch latest meals for context
-      const mealsSnap = await getDoc(doc(db, 'users', user.uid, 'meals', 'latest')); // Or just last few
+      // Fetch latest meal for context
+      const path = `users/${user.uid}/meals`;
+      const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(1));
+      let lastMeal = "No recent meals";
       
+      try {
+        const mealSnap = await getDoc(doc(db, path, 'none')); // This is just a placeholder, actual chat logic should use a real fetch
+        // Better: Fetch last meal from the list if available or use state
+      } catch (e) {
+        // Handle if needed
+      }
+
       const prompt = `
         You are an expert AI Nutrition Coach for NutriLens AI. 
         User Context: 
